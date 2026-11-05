@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- build v10 2026-11-04 16:16 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -116,6 +115,15 @@ label{display:block;font-size:12px;color:var(--mut);margin:0 2px 5px}
 .ipick .ic{background:var(--card2);border:2px solid transparent;border-radius:12px;padding:8px;display:flex;justify-content:center}
 .ipick .ic.sel{border-color:var(--gold);background:#2a0a10}
 
+/* login */
+#login{position:fixed;inset:0;z-index:200;background:repeating-linear-gradient(118deg,#1a0508 0 22px,#0d0d0d 22px 44px);display:flex;align-items:center;justify-content:center;padding:20px}
+#login .lb{width:100%;max-width:360px;background:#151515;border:1px solid var(--red);border-radius:20px;padding:24px 20px;text-align:center;box-shadow:0 10px 40px #000}
+#login img{width:84px;height:84px}
+#login h2{font-size:15px;color:var(--gold);letter-spacing:.5px;margin:8px 0 2px}
+#login h1{font-size:22px;margin:0 0 16px}
+#login .inp{text-align:left}
+#login .er{color:var(--bad);font-size:13px;min-height:18px;margin:-4px 0 8px}
+.rolb{display:inline-block;font-size:11px;font-weight:700;background:var(--red);color:#fff;border-radius:8px;padding:2px 8px;margin-left:6px;vertical-align:middle}
 /* nav */
 .nav{position:fixed;left:0;right:0;bottom:0;background:#121212;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:40}
 .nav button{flex:1;background:none;border:0;color:var(--mut);padding:10px 2px 9px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -162,7 +170,7 @@ details summary{cursor:pointer;color:var(--gold);font-weight:700;font-size:14px;
     <h1><span>XXI Encuentro Nacional</span>Mini Básquet</h1>
     <p>Club Independiente de Tandil<br>Caja del fin de semana</p>
   </div>
-  <div class="hr"><span class="ver">v10</span><button class="st off" id="st" onclick="syncNow()">…</button></div>
+  <div class="hr"><span class="ver">v11</span><button class="st off" id="st" onclick="syncNow()">…</button></div>
 </header>
 <iframe name="upif" id="upif" style="display:none" title="subida"></iframe>
 
@@ -231,6 +239,40 @@ function loadCfg(){
 }
 let CFG = loadCfg();
 function saveCfg(){ try{ localStorage.setItem('emb21_cfg',JSON.stringify(CFG)); }catch(e){} }
+
+/* ============ USUARIOS ============ */
+// gaston = administrador (todo) · fer = caja (carga y edita movimientos; no borra ni toca rubros/conexión)
+const USERS={ gaston:{pass:'1234',nombre:'Gastón',rol:'admin'}, fer:{pass:'pica',nombre:'Fer',rol:'caja'} };
+let USER=null;
+try{ const k=localStorage.getItem('emb21_user'); if(k&&USERS[k]) USER=Object.assign({k:k},USERS[k]); }catch(e){}
+if(USER){ CFG.dev=USER.nombre; saveCfg(); }
+const ADM=()=>!RO && !!USER && USER.rol==='admin';
+function loginUI(){
+  if(RO||USER||document.getElementById('login')) return;
+  const d=document.createElement('div'); d.id='login';
+  d.innerHTML=`<form class="lb" onsubmit="doLogin();return false" autocomplete="off">
+    <img src="${ESC}" alt=""><h2>XXI ENCUENTRO NACIONAL</h2><h1>MINI BÁSQUET · Caja</h1>
+    <input id="lg_u" class="inp" placeholder="Usuario" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <input id="lg_p" class="inp" type="password" placeholder="Clave" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="er" id="lg_e"></div>
+    <button class="btn" type="submit">Entrar</button></form>`;
+  document.body.appendChild(d);
+  setTimeout(()=>{ const u=document.getElementById('lg_u'); if(u) u.focus(); },50);
+}
+function doLogin(){
+  const k=(document.getElementById('lg_u').value||'').trim().toLowerCase(), p=document.getElementById('lg_p').value||'';
+  const u=USERS[k];
+  if(!u||u.pass!==p){ document.getElementById('lg_e').textContent='Usuario o clave incorrectos'; document.getElementById('lg_p').value=''; return; }
+  USER=Object.assign({k:k},u); CFG.dev=u.nombre; CFG.asked=true; saveCfg();
+  try{ localStorage.setItem('emb21_user',k); }catch(e){}
+  const l=document.getElementById('login'); if(l) l.remove();
+  try{ closeModal(); }catch(e){}
+  view='home'; render(); toast('Hola '+u.nombre);
+}
+function logout(){
+  try{ localStorage.removeItem('emb21_user'); }catch(e){}
+  USER=null; CFG.dev=''; saveCfg(); view='home'; render(); loginUI();
+}
 
 /* ============ DATOS ============ */
 const KEY = 'emb21_v2';
@@ -498,7 +540,7 @@ function vTipo(){
   return `<div class="top">
       <button class="back" onclick="go('home')">‹ Volver</button>
       <h2>${ing?'Ingreso':'Egreso'}<small>${editAreas?'Tocá un cuadro para editarlo, o la ✕ para sacarlo':(ing?'¿De dónde viene la plata?':'¿En qué se gastó?')}</small></h2>
-      <button class="edit ${editAreas?'on':''}" onclick="toggleEdit()">${editAreas?'Listo':'✏️ Áreas'}</button>
+      ${ADM()?`<button class="edit ${editAreas?'on':''}" onclick="toggleEdit()">${editAreas?'Listo':'✏️ Áreas'}</button>`:''}
     </div>
     <div class="grid">
       ${list.map(a=>`<div class="tile ${editAreas?'ed':''}" onclick="${editAreas?`areaModal('${tipo}','${a.id}')`:`movForm('','${a.id}')`}">
@@ -507,7 +549,7 @@ function vTipo(){
       ${editAreas?`<div class="tile add" onclick="areaModal('${tipo}','')"><div class="plus">＋</div><div class="tn">Agregar área</div></div>`:''}
     </div>`;
 }
-function toggleEdit(){editAreas=!editAreas; render();}
+function toggleEdit(){ if(!ADM()) return; editAreas=!editAreas; render();}
 
 function vMovs(){
   let l=ordenados(); if(filtro!=='todos') l=l.filter(m=>m.tipo===filtro);
@@ -630,6 +672,7 @@ async function backup(){
   toast('Backup descargado');
 }
 function restaurar(inp){
+  if(!ADM()) return;
   const f=inp.files[0]; if(!f) return;
   const fr=new FileReader();
   fr.onload=async()=>{
@@ -654,25 +697,26 @@ function vPerfil(){
     return `<h3 class="sec">Rubros de ${nom}</h3>
     <div class="tb">${l.length?l.map((a,i)=>{
       const c=vivos().filter(m=>m.areaId===a.id).length;
-      return `<div class="pr">${icon(a.icono,30)}<div class="prn"><b>${esc(a.nombre)}</b><small>${c} mov.</small></div>${RO?'':
+      return `<div class="pr">${icon(a.icono,30)}<div class="prn"><b>${esc(a.nombre)}</b><small>${c} mov.</small></div>${!ADM()?'':
         `<button class="ib" ${i===0?'disabled':''} onclick="moverArea('${t}',${i},-1)">▲</button><button class="ib" ${i===l.length-1?'disabled':''} onclick="moverArea('${t}',${i},1)">▼</button><button class="ib" onclick="areaModal('${t}','${a.id}')">✏️</button><button class="ib" onclick="delArea('${t}','${a.id}')">🗑</button>`}</div>`;
     }).join(''):'<div class="empty">No hay rubros.</div>'}</div>
-    ${RO?'':`<button class="btn ghost" onclick="areaModal('${t}','')">＋ Agregar rubro de ${nom}</button>`}`;
+    ${!ADM()?'':`<button class="btn ghost" onclick="areaModal('${t}','')">＋ Agregar rubro de ${nom}</button>`}`;
   };
-  return `<div class="perf"><img src="${ESC}" alt=""><div><b>${esc(CFG.dev||'Sin nombre')}</b><small>${RO?'Modo solo ver':'Puede cargar y editar'} · ${!CFG.url?'sin Sheet':(online?'conectado en vivo':'sin conexión')}</small></div></div>
+  return `<div class="perf"><img src="${ESC}" alt=""><div><b>${esc(USER?USER.nombre:(CFG.dev||'Sin nombre'))}${USER?`<span class="rolb">${ADM()?'ADMIN':'CAJA'}</span>`:''}</b><small>${RO?'Modo solo ver':(ADM()?'Administrador · puede todo':(USER?'Caja · puede cargar y editar movimientos':'Puede cargar y editar'))} · ${!CFG.url?'sin Sheet':(online?'conectado en vivo':'sin conexión')}</small></div></div>
+    ${USER?`<button class="btn ghost" style="margin-top:8px" onclick="logout()">Cerrar sesión (${esc(USER.nombre)})</button>`:''}
     ${rubros('ingreso')}
     ${rubros('egreso')}
     <h3 class="sec">Este celular y conexión</h3>
     <div class="tb" style="padding:12px">
-      <label>Nombre de este celular (queda registrado como quién cargó)</label>
-      <input id="s_dev" class="inp" value="${esc(CFG.dev||'')}" placeholder="Ej: Gastón - puerta" autocapitalize="words">
-      <details ${CFG.url?'':'open'}><summary>Conexión al Sheet</summary>
+      ${USER?'':`<label>Nombre de este celular (queda registrado como quién cargó)</label>
+      <input id="s_dev" class="inp" value="${esc(CFG.dev||'')}" placeholder="Ej: Gastón - puerta" autocapitalize="words">`}
+      ${USER&&!ADM()?'':`      <details ${CFG.url?'':'open'}><summary>Conexión al Sheet</summary>
         <label>URL de la aplicación web (termina en /exec)</label>
         <input id="s_url" class="inp" value="${esc(CFG.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocapitalize="off" autocorrect="off" spellcheck="false">
         <label>Clave</label>
         <input id="s_key" class="inp" value="${esc(CFG.key)}" autocapitalize="off" autocorrect="off" spellcheck="false">
       </details>
-      <button class="btn" onclick="guardarCfg()">Guardar y probar</button>
+      <button class="btn" onclick="guardarCfg()">Guardar y probar</button>`}
       <div style="margin-top:10px"><div class="r" style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;font-size:13px;border-bottom:1px solid var(--line)"><span>Último intento<small style="color:var(--mut);margin-left:6px">${LAST?esc(LAST.a)+' · '+LAST.len+' car.':''}</small></span><b>${LAST?esc(LAST.r):'—'}</b></div>
       <div class="r" style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span>Pendientes de subir</span><b>${pendientes()}</b></div></div>
     </div>
@@ -681,19 +725,20 @@ function vPerfil(){
       ${S.sheetUrl?`<a class="btn ghost" href="${esc(S.sheetUrl)}" target="_blank" rel="noopener">Abrir el Sheet</a>`:''}
       <button class="btn ghost" onclick="copiarLinkVer()">Copiar link “solo ver”</button>
       <button class="btn ghost" onclick="exportCSV()">Descargar planilla (CSV)</button>
-      ${RO?'':`<button class="btn ghost" onclick="backup()">Guardar backup (con comprobantes)</button>
+      ${!ADM()?'':`<button class="btn ghost" onclick="backup()">Guardar backup (con comprobantes)</button>
       <button class="btn ghost" onclick="$('rest').click()">Restaurar backup</button>
       <input type="file" id="rest" accept=".json,application/json" hidden onchange="restaurar(this)">`}
     </div>`;
 }
 function moverArea(t,i,d){
-  if(RO) return;
+  if(RO||!ADM()) return;
   const l=S.areas[t], j=i+d; if(j<0||j>=l.length) return;
   const x=l[i]; l[i]=l[j]; l[j]=x;
   S.areasDirty=true; save(); render(); flush();
 }
 async function guardarCfg(){
-  CFG.dev=$('s_dev').value.trim().slice(0,30); CFG.url=$('s_url').value.trim(); CFG.key=$('s_key').value.trim(); CFG.asked=true;
+  if(USER&&!ADM()) return;
+  if($('s_dev')) CFG.dev=$('s_dev').value.trim().slice(0,30); CFG.url=$('s_url').value.trim(); CFG.key=$('s_key').value.trim(); CFG.asked=true;
   saveCfg();
   if(!CFG.url){ toast('Guardado (sin Sheet)'); updateStatus(); render(); return; }
   if(!/^https:\/\/script\.google\.com\//.test(CFG.url)){ toast('La URL tiene que empezar con https://script.google.com/'); return; }
@@ -707,7 +752,7 @@ function copiarLinkVer(){
   if(navigator.clipboard) navigator.clipboard.writeText(u).then(()=>toast('Link copiado'),()=>toast(u)); else toast(u);
 }
 function preguntarNombre(){
-  if(RO||CFG.dev||CFG.asked) return;
+  if(RO||USER||CFG.dev||CFG.asked||document.getElementById('login')) return;
   CFG.asked=true; saveCfg();
   openModal(`<div class="fh"><div><small>PRIMERA VEZ</small><h3>¿Quién carga en este celular?</h3></div><button class="x2" onclick="closeModal()">✕</button></div>
     <input id="s_dev" class="inp" placeholder="Ej: Gastón - puerta" autocapitalize="words">
@@ -717,7 +762,7 @@ function preguntarNombre(){
 /* ============ ÁREAS ============ */
 let pickIcon='moneda', areaT='ingreso';
 function areaModal(t,id){
-  if(RO) return;
+  if(RO||!ADM()) return;
   areaT=t;
   const a=id?S.areas[t].find(x=>x.id===id):null;
   pickIcon=a?a.icono:'moneda';
@@ -729,6 +774,7 @@ function areaModal(t,id){
 }
 function selIcon(k){pickIcon=k; document.querySelectorAll('.ipick .ic').forEach(e=>e.classList.toggle('sel',e.dataset.k===k));}
 function saveArea(id){
+  if(!ADM()) return;
   const t=areaT, n=$('an').value.trim(); if(!n) return toast('Poné un nombre');
   if(id){
     const a=S.areas[t].find(x=>x.id===id); a.nombre=n; a.icono=pickIcon;
@@ -737,6 +783,7 @@ function saveArea(id){
   S.areasDirty=true; save(); closeModal(); render(); flush();
 }
 function delArea(t,id){
+  if(!ADM()) return;
   const a=S.areas[t].find(x=>x.id===id); if(!a) return;
   const n=vivos().filter(m=>m.areaId===id).length;
   const msg=n? `"${a.nombre}" tiene ${n} movimiento(s) cargados. Se saca el rubro de los cuadros, pero los movimientos se conservan y siguen sumando en Saldos y Resumen. ¿Sacarlo?` : `¿Sacar el rubro "${a.nombre}"?`;
@@ -817,13 +864,14 @@ async function detalle(id){
     ${m.cargo?`<div class="kv"><span>Cargó</span><span>${esc(m.cargo)}</span></div>`:''}
     <div id="d_foto">${tiene?'<div class="empty">Cargando comprobante…</div>':'<div class="empty">Sin comprobante</div>'}</div>
     ${RO?`<div class="row"><button class="btn ghost" onclick="closeModal()">Cerrar</button></div>`:
-    `<div class="row"><button class="btn del" onclick="borrarMov('${m.id}')">Eliminar</button><button class="btn" onclick="tipo='${m.tipo}';movForm('${m.id}','')">Editar</button></div>`}`);
+    `<div class="row">${ADM()?`<button class="btn del" onclick="borrarMov('${m.id}')">Eliminar</button>`:''}<button class="btn" onclick="tipo='${m.tipo}';movForm('${m.id}','')">Editar</button></div>`}`);
   if(tiene){
     let d=null; if(m.foto) d=await getFoto(id); if(!d&&m.fotoId) d=driveUrl(m.fotoId);
     const e=$('d_foto'); if(e) e.innerHTML=d?`<img class="fimg" src="${d}" alt="Comprobante">`:'<div class="empty">El comprobante está en otro teléfono y todavía no se subió</div>';
   }
 }
 async function borrarMov(id){
+  if(!ADM()) return;
   if(!confirm('¿Eliminar este movimiento? Se saca de la caja y del resumen.')) return;
   const m=S.movs.find(x=>x.id===id); if(!m) return;
   m.del=1; m.fclear=1; m.fotoId=''; m.foto=false; await delFoto(id); marcar(m);
@@ -832,6 +880,7 @@ async function borrarMov(id){
 
 /* ============ INICIO ============ */
 render();
+loginUI();
 openDB().then(()=>{ render(); startSync(); preguntarNombre(); });
 if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();
 </script>
